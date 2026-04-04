@@ -1,0 +1,4 @@
+FROM jupyter/pyspark-notebook
+
+WORKDIR /app
+COPY scripts/ /app
