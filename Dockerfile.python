@@ -1,0 +1,8 @@
+FROM python:3.10
+
+WORKDIR /app
+COPY scripts/ /app
+
+RUN pip install kafka-python pandas
+
+CMD ["sleep", "infinity"]
