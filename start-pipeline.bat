@@ -1,7 +1,7 @@
 @echo off
 
 echo ===============================
-echo Starting Kafka Pipeline (Smart Wait)
+echo Starting Kafka Pipeline (Ordered Execution)
 echo ===============================
 
 REM 1️⃣ Start Docker Compose
@@ -30,11 +30,19 @@ start "Kafka Consumer" cmd /k docker-compose exec kafka kafka-console-consumer -
 
 timeout /t 3 >nul
 
-REM 4️⃣ Run Producer
+REM 4️⃣ Start Spark
+echo Starting Spark Streaming...
+start "Spark Streaming" cmd /k docker-compose exec spark spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 /app/analytics.py
+
+REM 🧠 WAIT FOR SPARK TO INITIALIZE
+echo Waiting for Spark to initialize...
+timeout /t 15 >nul
+
+REM 5️⃣ Start Producer (ONLY AFTER SPARK IS READY)
 start "Producer" cmd /k docker-compose exec producer python /app/producer.py
 
 echo ===============================
-echo All terminals started!
+echo Full Pipeline Running!
 echo ===============================
 
 pause
