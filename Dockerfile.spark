@@ -1,4 +1,9 @@
 FROM jupyter/pyspark-notebook
 
 WORKDIR /app
+
+# Copy your scripts
 COPY scripts/ /app
+
+# (Optional) Install extra Python deps
+RUN pip install kafka-python pandas
