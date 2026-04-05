@@ -34,6 +34,11 @@ services:
       dockerfile: Dockerfile.spark
     volumes:
       - ./scripts:/app
+      - ./data:/data
+      - ./output:/output
+      - ./checkpoints:/checkpoints
+    ports:
+      - "8888:8888"
     depends_on:
       - kafka
 
