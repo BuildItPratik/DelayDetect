@@ -5,7 +5,9 @@ from kafka import KafkaProducer
 
 producer = KafkaProducer(
     bootstrap_servers=['kafka1:9092','kafka2:9093','kafka3:9094'],
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+    value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+    acks='all',
+    retries=5
 )
 
 df = pd.read_csv('/data/deliveries_500k.csv')
