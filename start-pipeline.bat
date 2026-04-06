@@ -47,22 +47,31 @@ for /f %%i in ('powershell -command "Get-Date -Format yyyy-MM-dd_HH-mm-ss"') do 
 
 set HAS_DATA=
 
-IF EXIST output set HAS_DATA=1
-IF EXIST checkpoints set HAS_DATA=1
+REM Check if folders have content
+for /f %%i in ('dir /b output 2^>nul') do set HAS_DATA=1
+for /f %%i in ('dir /b checkpoints 2^>nul') do set HAS_DATA=1
 
 IF DEFINED HAS_DATA (
     echo Archiving previous run...
 
-    mkdir archived\run_%TS% >nul 2>&1
+    REM ✅ Create archived ONLY when needed
+    IF NOT EXIST archived mkdir archived
 
-    IF EXIST output move output archived\run_%TS%\output >nul
-    IF EXIST checkpoints move checkpoints archived\run_%TS%\checkpoints >nul
+    set ARCHIVE_DIR=archived\run_%TS%
+
+    IF EXIST %ARCHIVE_DIR% (
+        set ARCHIVE_DIR=%ARCHIVE_DIR%_1
+    )
+
+    mkdir %ARCHIVE_DIR% >nul 2>&1
+
+    IF EXIST output move output %ARCHIVE_DIR%\output >nul
+    IF EXIST checkpoints move checkpoints %ARCHIVE_DIR%\checkpoints >nul
 )
 
 echo Creating fresh folders...
 mkdir output >nul 2>&1
 mkdir checkpoints >nul 2>&1
-
 REM 2️⃣ Delete topic (non-blocking)
 docker-compose exec kafka1 kafka-topics --delete ^
 --topic deliveries ^
