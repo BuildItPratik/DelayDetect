@@ -20,8 +20,17 @@ IF %ERRORLEVEL% NEQ 0 (
 echo kafka1 container started!
 
 REM 🔁 Wait for Kafka broker to be ready
+set RETRIES=0
+
 :wait_kafka
-docker-compose exec kafka1 kafka-broker-api-versions --bootstrap-server kafka1:9092 >nul 2>&1
+set /a RETRIES+=1
+
+IF %RETRIES% GTR 20 (
+    echo Kafka failed to start!
+    exit /b 1
+)
+
+docker-compose exec kafka1 kafka-topics --list --bootstrap-server kafka1:9092 >nul 2>&1
 
 IF %ERRORLEVEL% NEQ 0 (
     echo Kafka not ready yet... retrying
@@ -31,30 +40,37 @@ IF %ERRORLEVEL% NEQ 0 (
 
 echo Kafka is ready!
 
-echo Resetting output...
-rd /s /q output >nul 2>&1
-mkdir output
+REM 📁 Archive previous output
+IF NOT EXIST archived mkdir archived
 
-echo Resetting checkpoints...
-rd /s /q checkpoints >nul 2>&1
-mkdir checkpoints
+for /f %%i in ('powershell -command "Get-Date -Format yyyy-MM-dd_HH-mm-ss"') do set TS=%%i
 
-REM 2️⃣ Delete topic (if exists)
-docker-compose exec kafka1 kafka-topics --delete --topic deliveries --bootstrap-server kafka1:9092 >nul 2>&1
+set HAS_DATA=
 
-REM 🔁 Wait for topic deletion to complete
-:wait_delete
-docker-compose exec kafka1 kafka-topics --list --bootstrap-server kafka1:9092 | findstr deliveries >nul
+IF EXIST output set HAS_DATA=1
+IF EXIST checkpoints set HAS_DATA=1
 
-IF %ERRORLEVEL% EQU 0 (
-    echo Waiting for topic deletion...
-    timeout /t 3 >nul
-    goto wait_delete
+IF DEFINED HAS_DATA (
+    echo Archiving previous run...
+
+    mkdir archived\run_%TS% >nul 2>&1
+
+    IF EXIST output move output archived\run_%TS%\output >nul
+    IF EXIST checkpoints move checkpoints archived\run_%TS%\checkpoints >nul
 )
 
-echo Old topic cleared!
+echo Creating fresh folders...
+mkdir output >nul 2>&1
+mkdir checkpoints >nul 2>&1
 
-REM 3️⃣ Create Topic (replicated)
+REM 2️⃣ Delete topic (non-blocking)
+docker-compose exec kafka1 kafka-topics --delete ^
+--topic deliveries ^
+--bootstrap-server kafka1:9092 >nul 2>&1
+
+echo Topic deletion requested (if it existed).
+
+REM 3️⃣ Create Topic (separate terminal)
 start "Create Topic" cmd /k docker-compose exec kafka1 kafka-topics --create ^
 --if-not-exists ^
 --topic deliveries ^
@@ -62,7 +78,26 @@ start "Create Topic" cmd /k docker-compose exec kafka1 kafka-topics --create ^
 --replication-factor 3 ^
 --partitions 3
 
-timeout /t 3 >nul
+REM 🔁 Wait until topic exists
+set RETRIES=0
+
+:wait_topic
+set /a RETRIES+=1
+
+IF %RETRIES% GTR 15 (
+    echo Topic creation failed!
+    exit /b 1
+)
+
+docker-compose exec kafka1 kafka-topics --list --bootstrap-server kafka1:9092 | findstr deliveries >nul
+
+IF %ERRORLEVEL% NEQ 0 (
+    echo Waiting for topic to be created...
+    timeout /t 3 >nul
+    goto wait_topic
+)
+
+echo Topic 'deliveries' is ready!
 
 REM 4️⃣ Start Consumer
 start "Kafka Consumer" cmd /k docker-compose exec kafka1 kafka-console-consumer ^
@@ -78,7 +113,7 @@ start "Spark Streaming" cmd /k docker-compose exec spark spark-submit ^
 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 ^
 /app/analytics.py
 
-REM 🧠 WAIT FOR SPARK TO INITIALIZE
+REM Wait for Spark
 echo Waiting for Spark to initialize...
 timeout /t 15 >nul
 
