@@ -40,8 +40,7 @@ IF %ERRORLEVEL% NEQ 0 (
 
 echo Kafka is ready!
 
-REM 📁 Archive previous output
-IF NOT EXIST archived mkdir archived
+setlocal enabledelayedexpansion
 
 for /f %%i in ('powershell -command "Get-Date -Format yyyy-MM-dd_HH-mm-ss"') do set TS=%%i
 
@@ -54,24 +53,25 @@ for /f %%i in ('dir /b checkpoints 2^>nul') do set HAS_DATA=1
 IF DEFINED HAS_DATA (
     echo Archiving previous run...
 
-    REM ✅ Create archived ONLY when needed
     IF NOT EXIST archived mkdir archived
 
-    set ARCHIVE_DIR=archived\run_%TS%
+    set ARCHIVE_DIR=archived\run_!TS!
 
-    IF EXIST %ARCHIVE_DIR% (
-        set ARCHIVE_DIR=%ARCHIVE_DIR%_1
+    IF EXIST !ARCHIVE_DIR! (
+        set ARCHIVE_DIR=!ARCHIVE_DIR!_1
     )
 
-    mkdir %ARCHIVE_DIR% >nul 2>&1
+    mkdir !ARCHIVE_DIR! >nul 2>&1
 
-    IF EXIST output move output %ARCHIVE_DIR%\output >nul
-    IF EXIST checkpoints move checkpoints %ARCHIVE_DIR%\checkpoints >nul
+    IF EXIST output move output !ARCHIVE_DIR!\output >nul
+    IF EXIST checkpoints move checkpoints !ARCHIVE_DIR!\checkpoints >nul
 )
 
-echo Creating fresh folders...
-mkdir output >nul 2>&1
+echo Creating fresh folders... 
+mkdir output >nul 2>&1 
 mkdir checkpoints >nul 2>&1
+
+
 REM 2️⃣ Delete topic (non-blocking)
 docker-compose exec kafka1 kafka-topics --delete ^
 --topic deliveries ^
