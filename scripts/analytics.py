@@ -23,7 +23,7 @@ delivery_schema = StructType([
 # 3. Read stream from Kafka
 raw_deliveries = spark.readStream \
     .format("kafka") \
-    .option("kafka.bootstrap.servers", "kafka:9092") \
+    .option("kafka.bootstrap.servers", "kafka1:9092,kafka2:9093,kafka3:9094") \
     .option("subscribe", "deliveries") \
     .option("startingOffsets", "earliest") \
     .load()
