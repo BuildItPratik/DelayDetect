@@ -31,6 +31,14 @@ IF %ERRORLEVEL% NEQ 0 (
 
 echo Kafka is ready!
 
+echo Resetting output...
+rd /s /q output >nul 2>&1
+mkdir output
+
+echo Resetting checkpoints...
+rd /s /q checkpoints >nul 2>&1
+mkdir checkpoints
+
 REM 2️⃣ Delete topic (if exists)
 docker-compose exec kafka1 kafka-topics --delete --topic deliveries --bootstrap-server kafka1:9092 >nul 2>&1
 
